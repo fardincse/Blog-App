@@ -5,7 +5,7 @@ class BlogItem extends StatelessWidget {
   final String cetagory;
   final String title;
   final String decoration;
-  final String imagePath;
+  final String? imagePath;
   final VoidCallback onTap;
 
   const BlogItem({
@@ -13,18 +13,18 @@ class BlogItem extends StatelessWidget {
     required this.cetagory,
     required this.title,
     required this.decoration,
-    required this.imagePath,
+    this.imagePath,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding:  EdgeInsets.symmetric(vertical: 8.h),
       child: GestureDetector(
         onTap: onTap,
         child: SizedBox(
-          height: 150.h,
+        //  height: 150.h,
           width: double.infinity,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -65,7 +65,9 @@ class BlogItem extends StatelessWidget {
                 width: 130.w,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.asset(imagePath, fit: BoxFit.cover),
+                  child: Image.network(imagePath!, fit: BoxFit.cover,
+                  // errorBuilder: (context, error, stackTrace) => Image.asset('assets/images/no-image-found.jpg'),
+                  ),
                 ),
               ),
             ],

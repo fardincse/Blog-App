@@ -11,6 +11,7 @@ class TextInputFiled extends StatelessWidget {
   final IconButton? suffixIcon;
   final bool? obText;
   final FormFieldValidator? validator;
+  final int? maxLine;
   const TextInputFiled({
     super.key,
     required this.controller,
@@ -20,7 +21,8 @@ class TextInputFiled extends StatelessWidget {
     this.prefixIcon,
     this.suffixIcon,
     this.obText,
-    this.validator,
+    this.validator, 
+    this.maxLine,
   });
 
   @override
@@ -33,12 +35,14 @@ class TextInputFiled extends StatelessWidget {
       validator: validator,
       obscureText: obText ?? false,
       obscuringCharacter: '•',
-      style: TextStyle(fontSize: 16.sp, color: Color(0xFF9EA6BA)),
+      maxLines: maxLine ?? 1,
+      minLines: 1,
+      style: TextStyle(fontSize: 16.sp, color: Colors.white),
       decoration: InputDecoration(
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Color(0xFF292E38),
-        contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 10.w),
+        contentPadding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 10.w),
         hintText: hintText,
         hintStyle: TextStyle(fontSize: 16.sp, color: Color(0xFF9EA6BA)),
         border: OutlineInputBorder(

@@ -1,12 +1,20 @@
-import 'package:blog_app/Helpre_Classh/Provider/bookmarks_provider.dart';
-import 'package:blog_app/Helpre_Classh/Provider/details_provider.dart';
+import 'package:blog_app/Common_Widget/snackbar.dart';
+import 'package:blog_app/Helpre_Classh/Provider/BookMarks/bookmarks_provider.dart';
+import 'package:blog_app/Helpre_Classh/Provider/Comment/get_comment_provider.dart';
+import 'package:blog_app/Helpre_Classh/Provider/Like/like_provider.dart';
+import 'package:blog_app/Helpre_Classh/Provider/Usre_Provider/user_provider.dart';
+import 'package:blog_app/Helpre_Classh/Provider/Details/details_provider.dart';
+import 'package:blog_app/Model/Like/get_user_like_model.dart';
+import 'package:blog_app/Utils/Comment/edit_comment.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:blog_app/App_UI/Blog_Details/comments.dart';
 import 'package:blog_app/Common_Widget/text_from_filed.dart';
-import 'package:blog_app/Common_Widget/snackbar.dart';
+import 'package:blog_app/Utils/Time_Formate/time_model.dart';
+import 'package:blog_app/Utils/Comment/delete_coment.dart';
+import 'package:blog_app/App_UI/Auth/Profile/profile.dart';
 
 class BlogDetails extends StatefulWidget {
   const BlogDetails({super.key});
@@ -16,47 +24,46 @@ class BlogDetails extends StatefulWidget {
 }
 
 class _BlogDetailsState extends State<BlogDetails> {
-  final List<Map<String, dynamic>> _comments = [
-    {
-      'image': 'assets/images/profile4.png',
-      'name': 'Lima Walker',
-      'ago': '2d',
-      'comment':
-          'Great article! I\'m particularly interested in the section on renewable energy. Do you have any recommendations for further reading on the topic?',
-    },
-    {
-      'image': 'assets/images/profile3.png',
-      'name': 'Ethan Carter',
-      'ago': '1d',
-      'comment':
-          'Thanks for your feedback, Liam! I\'d recommend checking out the latest reports from the International Renewable Energy Agency (IRENA) for comprehensive data and insights.',
-    },
-    {
-      'image': 'assets/images/profile2.png',
-      'name': 'Henry Walker',
-      'ago': '15h',
-      'comment':
-          'Great article! I\'m particularly interested in the section on renewable energy. Do you have any recommendations for further reading on the topic?',
-    },
-    {
-      'image': 'assets/images/profile1.png',
-      'name': 'Sophia Carter',
-      'ago': '6h',
-      'comment':
-          'Thanks for your feedback, Liam! I\'d recommend checking out the latest reports from the International Renewable Energy Agency (IRENA) for comprehensive data and insights.',
-    },
-  ];
-
   final TextEditingController _commentController = TextEditingController();
-  bool _inLove = false;
-  int _love = 123;
+
+  bool isLike = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final blog = context.read<DetailsProvider>().blog!.data!.post!;
+      final likeProvider = context.read<LikeProvider>();
+
+      List<Posts>? userLike = likeProvider.userLike?.data?.posts;
+
+      if (userLike != null) {
+        isLike = userLike.any((ele) => ele.id == blog.id.toString());
+      } else {
+        isLike = likeProvider.postLike?.data?.liked ?? false;
+      }
+
+      setState(() {});
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    bool inBookmark = context.watch<BookmarksProvider>().inBookmark({
-      'title': context.read<DetailsProvider>().title,
-      'image': context.read<DetailsProvider>().imagePath,
-    });
+    final details = context.read<DetailsProvider>().blog;
+    final bookmark = context.watch<BookmarksProvider>().isbookmarks;
+    if (details!.data!.post == null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final blog = details.data!.post!;
+    final comments = context.watch<GetCommentProvider>().allComent;
+    if (comments == null || comments.data == null) {
+      return Center(child: CircularProgressIndicator());
+    }
+    final commentList = comments.data!.comments!;
+    final like = context.watch<LikeProvider>().likeCount;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -70,27 +77,27 @@ class _BlogDetailsState extends State<BlogDetails> {
         actions: [
           IconButton(
             onPressed: () {
-              !inBookmark
+              bookmark
                   ? {
-                      context.read<BookmarksProvider>().addTOBookmarks({
-                        'title': context.read<DetailsProvider>().title,
-                        'image': context.read<DetailsProvider>().imagePath,
-                      }),
-                      showSnackBarMessage(context, 'Blog add to Bookmarks'),
-                    }
-                  : {
-                      context.read<BookmarksProvider>().removeFromBookmarks({
-                        'title': context.read<DetailsProvider>().title,
-                        'image': context.read<DetailsProvider>().imagePath,
-                      }),
+                      context.read<BookmarksProvider>().removeFromBookmarks(blog.id!),
                       showSnackBarMessage(
                         context,
                         'Blog remove from Bookmarks',
                       ),
+                    }
+                  : {
+                      context.read<BookmarksProvider>().addTOBookmarks({
+                        'id' : blog.id,
+                        'title': blog.title,
+                        'content' : blog.content,
+                        'image': blog.featuredImage,
+                      }),
+                      showSnackBarMessage(context, 'Blog add to Bookmarks'),
                     };
             },
             icon: Icon(
-              inBookmark ? Icons.bookmark : Icons.bookmark_border_outlined,
+              bookmark! ? Icons.bookmark :
+              Icons.bookmark_border_outlined,
               size: 25.sp,
               color: Colors.white,
             ),
@@ -105,9 +112,12 @@ class _BlogDetailsState extends State<BlogDetails> {
               width: 390.w,
               padding: EdgeInsets.all(20),
               decoration: BoxDecoration(color: Colors.white),
-              child: Image.asset(
-                context.read<DetailsProvider>().imagePath,
+              child: Image.network(
+                blog.featuredImage ?? '',
                 fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Image(
+                  image: AssetImage('assets/images/no-image-found.jpg'),
+                ),
               ),
             ),
             Padding(
@@ -117,7 +127,7 @@ class _BlogDetailsState extends State<BlogDetails> {
                 children: [
                   SizedBox(height: 20),
                   Text(
-                    context.read<DetailsProvider>().title,
+                    blog.title!,
                     style: TextStyle(
                       fontSize: 22.sp,
                       fontWeight: FontWeight.bold,
@@ -133,9 +143,7 @@ class _BlogDetailsState extends State<BlogDetails> {
                         onTap: () {},
                         child: CircleAvatar(
                           radius: 28.r,
-                          backgroundImage: AssetImage(
-                            'assets/images/profile5.png',
-                          ),
+                          backgroundImage: NetworkImage(blog.author!.avatar!),
                           backgroundColor: Colors.grey,
                         ),
                       ),
@@ -143,15 +151,27 @@ class _BlogDetailsState extends State<BlogDetails> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Author',
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              color: Colors.white,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                'Author',
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 10.w),
+                              Text(
+                                timeAgo(blog.createdAt!),
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  color: Color(0xFF9EA6BA),
+                                ),
+                              ),
+                            ],
                           ),
                           Text(
-                            'Olivia Harper',
+                            blog.author!.name!,
                             style: TextStyle(
                               fontSize: 14.sp,
                               color: Color(0xFF9EA6BA),
@@ -163,7 +183,7 @@ class _BlogDetailsState extends State<BlogDetails> {
                   ),
                   SizedBox(height: 10),
                   Text(
-                    'In a world increasingly aware of its environmental footprint, the concept of sustainable living has moved from a niche lifestyle to a mainstream necessity. This article explores the innovative approaches and technologies that are shaping a greener future, from renewable energy solutions to eco-friendly consumer products.',
+                    blog.content!,
                     style: TextStyle(fontSize: 14.sp, color: Colors.white),
                   ),
                   SizedBox(height: 20),
@@ -173,19 +193,19 @@ class _BlogDetailsState extends State<BlogDetails> {
                       IconButton(
                         onPressed: () {
                           setState(() {
-                            _inLove = !_inLove;
-                            _inLove ? _love = _love + 1 : _love = _love - 1;
+                            isLike = !isLike;
                           });
+                          context.read<LikeProvider>().likeBlog(blog.id!);
                         },
                         icon: Icon(
-                          _inLove ? Icons.favorite : Icons.favorite_border,
-                          color: _inLove ? Colors.pink[700] : Color(0xFF9EA6BA),
+                          isLike ? Icons.favorite : Icons.favorite_border,
+                          color: isLike ? Colors.pink[700] : Color(0xFF9EA6BA),
                           size: 25.sp,
                         ),
                       ),
                       SizedBox(width: 5),
                       Text(
-                        '$_love',
+                        '${like!.data!.totalLikes}',
                         style: TextStyle(
                           fontSize: 13.sp,
                           fontWeight: FontWeight.bold,
@@ -200,7 +220,7 @@ class _BlogDetailsState extends State<BlogDetails> {
                       ),
                       SizedBox(width: 10),
                       Text(
-                        '45',
+                        '${comments.data!.comments!.length}',
                         style: TextStyle(
                           fontSize: 13.sp,
                           fontWeight: FontWeight.bold,
@@ -210,6 +230,65 @@ class _BlogDetailsState extends State<BlogDetails> {
                     ],
                   ),
                   SizedBox(height: 20),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => Profile()),
+                          );
+                        },
+                        child: CircleAvatar(
+                          radius: 20.r,
+                          backgroundImage: AssetImage(
+                            context.read<UserProvider>().userProfile,
+                          ),
+                          backgroundColor: Colors.grey,
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: TextInputFiled(
+                          controller: _commentController,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(250),
+                          ],
+                          hintText: 'Write a comment...',
+                          keyBoardType: TextInputType.text,
+                          maxLine: 3,
+                          suffixIcon: IconButton(
+                            onPressed: () async {
+                              if (_commentController.text.isEmpty) {
+                                showSnackBarMessage(
+                                  context,
+                                  "Write a commrnt please",
+                                );
+                              } else {
+                                context
+                                    .read<GetCommentProvider>()
+                                    .addAndRefreshComment(
+                                      blog.id!,
+                                      _commentController.text,
+                                    );
+                                _commentController.clear();
+                                final response = context
+                                    .read<GetCommentProvider>()
+                                    .message;
+                                showSnackBarMessage(context, response!);
+                              }
+                            },
+                            icon: Icon(
+                              Icons.send,
+                              color: Colors.white,
+                              size: 25.sp,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20.h),
                   Text(
                     'Comments',
                     style: TextStyle(
@@ -219,45 +298,73 @@ class _BlogDetailsState extends State<BlogDetails> {
                     ),
                   ),
                   SizedBox(height: 10),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    primary: false,
-                    itemCount: _comments.length,
-                    itemBuilder: (context, index) {
-                      final comment = _comments[index];
-                      return Comments(
-                        imagePath: comment['image'],
-                        name: comment['name'],
-                        ago: comment['ago'],
-                        comment: comment['comment'],
-                      );
-                    },
-                  ),
+                  (comments.data == null)
+                      ? SizedBox.shrink()
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          primary: false,
+                          itemCount: commentList.length,
+                          itemBuilder: (context, index) {
+                            final comment = comments.data!.comments![index];
+                            final commenterId = comment.author!.id;
+                            final userId = context
+                                .read<UserProvider>()
+                                .user!
+                                .data!
+                                .user!
+                                .id;
+                            return Comments(
+                              imagePath: comment.author!.avatar!,
+                              name: comment.author!.name!,
+                              ago: timeAgo(comment.createdAt!),
+                              comment: comment.content!,
+                              onLongPress: () {
+                                if (commenterId == userId) {
+                                  showCommentOptionsDialog(
+                                    context,
+                                    comment.id!,
+                                    comment.content!,
+                                    () {
+                                      showEditCommentDialog(
+                                        context,
+                                        comment.content!,
+                                        (editedText) {
+                                          context
+                                              .read<GetCommentProvider>()
+                                              .editAndRefreshComment(
+                                                comment.id!,
+                                                editedText,
+                                                blog.id!,
+                                              );
+                                          showSnackBarMessage(
+                                            context,
+                                            context
+                                                .read<GetCommentProvider>()
+                                                .editMessage!,
+                                          );
+                                        },
+                                      );
+                                      print(comment.content);
+                                    },
+                                    () {
+                                      context
+                                          .read<GetCommentProvider>()
+                                          .deleteAndRefreshComment(
+                                            comment.id!,
+                                            blog.id!,
+                                          );
+                                      final response = context
+                                          .read<GetCommentProvider>()
+                                          .deleteMessage;
+                                      showSnackBarMessage(context, response!);
+                                    },
+                                  );
+                                }
+                              },
+                            );
+                          },
+                        ),
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        width: double.infinity,
-        height: 70.h,
-        color: Colors.transparent,
-        padding: EdgeInsets.symmetric(horizontal: 15),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 20.r,
-              backgroundImage: AssetImage('assets/images/profile5.png'),
-              backgroundColor: Colors.grey,
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: TextInputFiled(
-                controller: _commentController,
-                inputFormatters: [LengthLimitingTextInputFormatter(250)],
-                hintText: 'Write a comment...',
-                keyBoardType: TextInputType.text,
               ),
             ),
           ],

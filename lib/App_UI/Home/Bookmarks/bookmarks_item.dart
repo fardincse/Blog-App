@@ -29,7 +29,7 @@ class BookmarksItem extends StatelessWidget {
                 flex: 1,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.asset(imagePath, fit: BoxFit.cover),
+                  child: Image.network(imagePath, fit: BoxFit.cover),
                 ),
               ),
               SizedBox(width: 10),
